@@ -14,7 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      case_analyses: {
+        Row: {
+          case_type: string
+          created_at: string
+          id: string
+          incident_date: string | null
+          jurisdiction: string
+          key_factors: string[]
+          key_facts: string[]
+          legal_sections: string | null
+          party1_name: string
+          party1_role: string | null
+          party2_name: string
+          party2_role: string | null
+          recommended_next_steps: string[]
+          risk_level: string
+          similar_precedents: string[]
+          suggested_arguments: string[]
+          summary: string
+          verdict_likelihood: number
+        }
+        Insert: {
+          case_type: string
+          created_at?: string
+          id?: string
+          incident_date?: string | null
+          jurisdiction: string
+          key_factors?: string[]
+          key_facts?: string[]
+          legal_sections?: string | null
+          party1_name: string
+          party1_role?: string | null
+          party2_name: string
+          party2_role?: string | null
+          recommended_next_steps?: string[]
+          risk_level: string
+          similar_precedents?: string[]
+          suggested_arguments?: string[]
+          summary: string
+          verdict_likelihood: number
+        }
+        Update: {
+          case_type?: string
+          created_at?: string
+          id?: string
+          incident_date?: string | null
+          jurisdiction?: string
+          key_factors?: string[]
+          key_facts?: string[]
+          legal_sections?: string | null
+          party1_name?: string
+          party1_role?: string | null
+          party2_name?: string
+          party2_role?: string | null
+          recommended_next_steps?: string[]
+          risk_level?: string
+          similar_precedents?: string[]
+          suggested_arguments?: string[]
+          summary?: string
+          verdict_likelihood?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

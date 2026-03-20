@@ -1,54 +1,40 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Eye, FileText } from "lucide-react";
+import { Eye, FileText, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import AnalysisResults, { type AnalysisData } from "@/components/case-analysis/AnalysisResults";
+import { supabase } from "@/integrations/supabase/client";
+import type { Tables } from "@/integrations/supabase/types";
 
-interface CaseRecord {
-  id: string;
-  caseType: string;
-  date: string;
-  riskLevel: "Low" | "Medium" | "High";
-  analysis: AnalysisData;
-}
-
-// Sample data — will be replaced with Lovable Cloud data
-const sampleCases: CaseRecord[] = [
-  {
-    id: "VRD-001",
-    caseType: "Criminal",
-    date: "2024-03-15",
-    riskLevel: "High",
-    analysis: {
-      verdictLikelihood: 35,
-      riskLevel: "High",
-      keyFactors: ["Limited documentary evidence", "Conflicting witness statements"],
-      suggestedArguments: ["Challenge evidence admissibility", "Highlight procedural irregularities"],
-      similarPrecedents: ["State v. Mehta (2020) - Similar evidentiary challenges"],
-      recommendedNextSteps: ["Retain experienced criminal defense attorney", "File for bail"],
-    },
-  },
-  {
-    id: "VRD-002",
-    caseType: "Civil",
-    date: "2024-03-10",
-    riskLevel: "Low",
-    analysis: {
-      verdictLikelihood: 78,
-      riskLevel: "Low",
-      keyFactors: ["Strong contractual evidence", "Clear breach documentation"],
-      suggestedArguments: ["Present contract terms clearly", "Quantify damages precisely"],
-      similarPrecedents: ["Patel v. ABC Corp (2021) - Contract enforcement"],
-      recommendedNextSteps: ["File civil suit", "Prepare damage calculation report"],
-    },
-  },
-];
+type CaseRow = Tables<"case_analyses">;
 
 export default function CaseHistory() {
-  const [selected, setSelected] = useState<CaseRecord | null>(null);
+  const [cases, setCases] = useState<CaseRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<CaseRow | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("case_analyses")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .then(({ data }) => {
+        setCases(data || []);
+        setLoading(false);
+      });
+  }, []);
+
+  const toAnalysisData = (c: CaseRow): AnalysisData => ({
+    verdictLikelihood: c.verdict_likelihood,
+    riskLevel: c.risk_level as AnalysisData["riskLevel"],
+    keyFactors: c.key_factors,
+    suggestedArguments: c.suggested_arguments,
+    similarPrecedents: c.similar_precedents,
+    recommendedNextSteps: c.recommended_next_steps,
+  });
 
   const riskBadge = (level: string) => {
     const colors: Record<string, string> = {
@@ -66,7 +52,11 @@ export default function CaseHistory() {
         <p className="text-muted-foreground text-sm mt-2">View all your previously analyzed cases</p>
       </motion.div>
 
-      {sampleCases.length === 0 ? (
+      {loading ? (
+        <div className="flex justify-center py-20">
+          <Loader2 className="h-8 w-8 text-gold animate-spin" />
+        </div>
+      ) : cases.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
           <h3 className="font-display text-lg font-semibold text-foreground mb-2">No Cases Yet</h3>
@@ -85,12 +75,12 @@ export default function CaseHistory() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {sampleCases.map((c) => (
+              {cases.map((c) => (
                 <TableRow key={c.id} className="hover:bg-muted/30">
-                  <TableCell className="font-mono text-sm">{c.id}</TableCell>
-                  <TableCell>{c.caseType}</TableCell>
-                  <TableCell>{c.date}</TableCell>
-                  <TableCell>{riskBadge(c.riskLevel)}</TableCell>
+                  <TableCell className="font-mono text-xs">{c.id.slice(0, 8)}</TableCell>
+                  <TableCell>{c.case_type}</TableCell>
+                  <TableCell>{c.created_at.slice(0, 10)}</TableCell>
+                  <TableCell>{riskBadge(c.risk_level)}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="sm" onClick={() => setSelected(c)}>
                       <Eye className="h-4 w-4 mr-1" /> View
@@ -106,9 +96,9 @@ export default function CaseHistory() {
       <Dialog open={!!selected} onOpenChange={() => setSelected(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-display">Case {selected?.id} — {selected?.caseType}</DialogTitle>
+            <DialogTitle className="font-display">{selected?.case_type} Case</DialogTitle>
           </DialogHeader>
-          {selected && <AnalysisResults data={selected.analysis} />}
+          {selected && <AnalysisResults data={toAnalysisData(selected)} />}
         </DialogContent>
       </Dialog>
     </div>

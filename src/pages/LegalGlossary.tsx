@@ -4,6 +4,7 @@ import { Search, BookOpen, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface GlossaryResult {
   term: string;
@@ -20,15 +21,19 @@ export default function LegalGlossary() {
   const handleSearch = async () => {
     if (!query.trim()) return;
     setLoading(true);
+    setResult(null);
     try {
-      // Mock — will be replaced with edge function call
-      await new Promise((r) => setTimeout(r, 1500));
-      setResult({
-        term: query,
-        explanation: `${query} is a fundamental legal concept that refers to a principle or rule established in law. It is commonly used in legal proceedings to describe specific legal standards or requirements that must be met.`,
-        example: `In the case of State v. Smith, the court applied the principle of ${query.toLowerCase()} to determine the outcome, ruling that the defendant's actions met the legal threshold.`,
-        relatedTerms: ["Due Process", "Habeas Corpus", "Mens Rea", "Res Judicata"],
+      const { data, error } = await supabase.functions.invoke("legal-glossary", {
+        body: { term: query.trim() },
       });
+
+      if (error) throw error;
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      setResult(data.definition);
     } catch {
       toast.error("Failed to fetch definition");
     } finally {
@@ -101,7 +106,7 @@ export default function LegalGlossary() {
                   {result.relatedTerms.map((term) => (
                     <button
                       key={term}
-                      onClick={() => { setQuery(term); }}
+                      onClick={() => setQuery(term)}
                       className="px-3 py-1 rounded-full text-xs font-medium bg-primary/10 text-primary hover:bg-primary/20 transition-colors"
                     >
                       {term}

@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import StepIndicator from "@/components/case-analysis/StepIndicator";
 import AnalysisResults, { type AnalysisData } from "@/components/case-analysis/AnalysisResults";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const caseTypes = ["Criminal", "Civil", "Family", "Property", "Consumer", "Labour"];
 const jurisdictions = ["State High Court", "District Court", "Supreme Court", "Consumer Forum"];
@@ -71,36 +72,53 @@ export default function CaseAnalysis() {
   const handleAnalyze = async () => {
     setLoading(true);
     try {
-      // Mock analysis for now - will be replaced with edge function call
-      await new Promise((r) => setTimeout(r, 3000));
-      const mockResults: AnalysisData = {
-        verdictLikelihood: Math.floor(Math.random() * 60) + 30,
-        riskLevel: ["Low", "Medium", "High"][Math.floor(Math.random() * 3)] as AnalysisData["riskLevel"],
-        keyFactors: [
-          "The timeline of events supports the claimant's version",
-          "Documentary evidence is available for key claims",
-          "Jurisdiction is appropriate for this type of case",
-        ],
-        suggestedArguments: [
-          "Emphasize the documented evidence trail",
-          "Reference similar cases with favorable outcomes",
-          "Highlight procedural compliance by the claimant",
-        ],
-        similarPrecedents: [
-          "State v. Kumar (2019) - Similar case type with favorable verdict",
-          "Sharma v. Union of India (2021) - Relevant jurisdictional precedent",
-          "Patel Industries v. State (2020) - Key procedural ruling",
-        ],
-        recommendedNextSteps: [
-          "Gather all documentary evidence mentioned in the case summary",
-          "Consult with a licensed attorney in the relevant jurisdiction",
-          "File a formal complaint within the limitation period",
-          "Consider mediation as an alternative dispute resolution method",
-        ],
-      };
-      setResults(mockResults);
+      const { data, error } = await supabase.functions.invoke("analyze-case", {
+        body: {
+          caseType: form.caseType,
+          summary: form.summary,
+          incidentDate: form.incidentDate ? format(form.incidentDate, "yyyy-MM-dd") : null,
+          keyFacts: form.keyFacts.filter((f) => f.trim()),
+          party1Name: form.party1Name,
+          party1Role: form.party1Role,
+          party2Name: form.party2Name,
+          party2Role: form.party2Role,
+          legalSections: form.legalSections,
+          jurisdiction: form.jurisdiction,
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) {
+        toast.error(data.error);
+        return;
+      }
+
+      const analysis: AnalysisData = data.analysis;
+
+      // Save to database
+      await supabase.from("case_analyses").insert({
+        case_type: form.caseType,
+        summary: form.summary,
+        incident_date: form.incidentDate ? format(form.incidentDate, "yyyy-MM-dd") : null,
+        key_facts: form.keyFacts.filter((f) => f.trim()),
+        party1_name: form.party1Name,
+        party1_role: form.party1Role,
+        party2_name: form.party2Name,
+        party2_role: form.party2Role,
+        legal_sections: form.legalSections,
+        jurisdiction: form.jurisdiction,
+        verdict_likelihood: analysis.verdictLikelihood,
+        risk_level: analysis.riskLevel,
+        key_factors: analysis.keyFactors,
+        suggested_arguments: analysis.suggestedArguments,
+        similar_precedents: analysis.similarPrecedents,
+        recommended_next_steps: analysis.recommendedNextSteps,
+      });
+
+      setResults(analysis);
       toast.success("Analysis complete!");
-    } catch {
+    } catch (err) {
+      console.error(err);
       toast.error("Analysis failed. Please try again.");
     } finally {
       setLoading(false);
@@ -133,7 +151,6 @@ export default function CaseAnalysis() {
   }
 
   const stepContent = [
-    // Step 1: Case Details
     <div key="step1" className="space-y-6">
       <div>
         <Label>Case Type</Label>
@@ -175,7 +192,6 @@ export default function CaseAnalysis() {
       </div>
     </div>,
 
-    // Step 2: Key Facts
     <div key="step2" className="space-y-6">
       <div>
         <Label>Key Facts</Label>
@@ -221,7 +237,6 @@ export default function CaseAnalysis() {
       </div>
     </div>,
 
-    // Step 3: Legal Sections
     <div key="step3" className="space-y-6">
       <div>
         <Label>IPC/CrPC Sections (Optional)</Label>
@@ -243,7 +258,6 @@ export default function CaseAnalysis() {
       </div>
     </div>,
 
-    // Step 4: Review
     <div key="step4" className="space-y-4">
       <h3 className="font-display text-lg font-semibold text-foreground">Review Your Case</h3>
       {[

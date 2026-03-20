@@ -1,1 +1,7 @@
 project_id = "qojaztoewkwjkntluzhp"
+
+[functions.analyze-case]
+verify_jwt = false
+
+[functions.legal-glossary]
+verify_jwt = false
